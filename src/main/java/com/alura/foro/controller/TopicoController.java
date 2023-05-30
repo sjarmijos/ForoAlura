@@ -1,5 +1,6 @@
 package com.alura.foro.controller;
 
+import com.alura.foro.model.answer.RespuestaRepository;
 import com.alura.foro.model.course.Curso;
 import com.alura.foro.model.topic.*;
 import com.alura.foro.model.user.Usuario;
@@ -20,10 +21,12 @@ import java.net.URI;
 public class TopicoController {
     @Autowired
     TopicoRepository topicoRepository;
+    @Autowired
+    RespuestaRepository respuestaRepository;
 
     @PostMapping
     public ResponseEntity<DatosRespuestaTopico> crearTopico(@RequestBody @Valid DatosRegistroTopico datosRegistroTopico,
-                                                            UriComponentsBuilder uriComponentsBuilder){
+                                                            UriComponentsBuilder uriComponentsBuilder) {
         Topico topico = topicoRepository.save(new Topico(datosRegistroTopico));
         DatosRespuestaTopico datosRespuestaTopico = new DatosRespuestaTopico(
                 topico.getId(),
@@ -41,9 +44,28 @@ public class TopicoController {
         return ResponseEntity.ok(topicoRepository.findAll(paginacion).map(DatosListadoTopico::new));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<DatosRespuestasDeCadaTopico> listarRespuestasPorTopico(@PathVariable Long id, @PageableDefault(size = 2) Pageable paginacion) {
+        Topico topico = topicoRepository.getReferenceById(id);
+        if (topico != null) {
+            var respuestas = respuestaRepository.findByTopicoId(id, paginacion);
+            var listaRespuestas = respuestas.map(DatosRespuestaPorTopicos::new);
+            return ResponseEntity.ok(new DatosRespuestasDeCadaTopico(
+                    topico.getId(),
+                    topico.getTitulo(),
+                    topico.getMensaje(),
+                    listaRespuestas.getContent()
+            ));
+        }else{
+            System.out.println("no se encontro");
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+
     @PutMapping
     @Transactional
-    public ResponseEntity<DatosRespuestaTopico> actualizarTopico(@RequestBody @Valid DatosActualizarTopico datosActualizarTopico){
+    public ResponseEntity<DatosRespuestaTopico> actualizarTopico(@RequestBody @Valid DatosActualizarTopico datosActualizarTopico) {
         Topico topico = topicoRepository.getReferenceById(datosActualizarTopico.id());
         topico.actualizarDatos(datosActualizarTopico);
         return ResponseEntity.ok(new DatosRespuestaTopico(
@@ -58,7 +80,7 @@ public class TopicoController {
 
     @DeleteMapping("/{id}")
     @Transactional
-    public ResponseEntity eliminarTopico(@PathVariable Long id){
+    public ResponseEntity eliminarTopico(@PathVariable Long id) {
         Topico topico = topicoRepository.getReferenceById(id);
         topico.desactivarTopico();
         return ResponseEntity.noContent().build();
